@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Russian Trainer</title>
+<style>
+:root {
+  --bg:#0f1117;
+  --panel:#1c1f29;
+  --card:#252a38;
+  --accent:#00d88a;
+  --accent2:#00b0f4;
+  --text:#e6edf3;
+  --muted:#8b949e;
+  --correct:#00d88a33;
+  --wrong:#ff505033;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:Inter,Segoe UI,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  min-height:100vh;
+  padding:16px;
+}
+
+.container{
+  width:100%;
+  max-width:900px;
+  background:var(--panel);
+  margin-top:20px;
+  padding:32px;
+  border-radius:18px;
+  box-shadow:0 10px 40px rgba(0,0,0,.6);
+}
+
+h1,h2{
+  margin:0 0 16px;
+  text-align:center;
+  font-weight:600;
+}
+
+label{
+  display:block;
+  margin:12px 0 6px;
+  font-weight:500;
+}
+
+input,select{
+  width:100%;
+  padding:14px 18px;
+  border:none;
+  border-radius:12px;
+  background:#2a2f3c;
+  color:var(--text);
+  font-size:1rem;
+  margin-bottom:16px;
+}
+
+button{
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border:none;
+  color:#fff;
+  padding:14px 24px;
+  border-radius:12px;
+  font-size:1rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:.3s;
+}
+button:hover{filter:brightness(1.1);}
+.hidden{display:none;}
+
+#russianText{
+  background:var(--card);
+  padding:24px;
+  border-radius:16px;
+  line-height:1.8;
+  margin-bottom:24px;
+  font-size:1.05rem;
+}
+
+.question{
+  margin-top:16px;
+  background:var(--card);
+  padding:18px;
+  border-radius:14px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.3);
+}
+
+.options button{
+  display:block;
+  width:100%;
+  text-align:left;
+  margin-top:10px;
+  background:#2f3543;
+  padding:12px 16px;
+  border-radius:10px;
+  font-size:1rem;
+  transition:.3s;
+}
+.options button:hover{
+  background:#3c4352;
+}
+.correct{background:var(--correct)!important;}
+.wrong{background:var(--wrong)!important;}
+
+#progress{
+  text-align:center;
+  margin-bottom:12px;
+  font-size:1rem;
+  color:var(--muted);
+}
+
+#result{
+  text-align:center;
+  margin-top:24px;
+  font-size:1.15rem;
+  font-weight:500;
+}
+
+#nextRound{
+  display:block;
+  margin:24px auto 0 auto; /* center the button */
+}
+
+@media(max-width:768px){
+  .container{
+    padding:24px;
+  }
+  #russianText{
+    padding:18px;
+  }
+  .question{
+    padding:16px;
+  }
+  input,select,button{
+    font-size:0.95rem;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="setup">
+  <h1>Russian Trainer</h1>
+  <label>Ваше имя:</label>
+  <input type="text" id="username" placeholder="Введите имя...">
+  <label>Начальный уровень:</label>
+  <select id="difficulty">
+    <option value="beginner">Начальный</option>
+    <option value="intermediate">Средний</option>
+    <option value="advanced">Продвинутый</option>
+  </select>
+  <button onclick="startTraining()">Начать обучение</button>
+</div>
+
+<div class="container hidden" id="training">
+  <h2 id="greeting"></h2>
+  <div id="progress"></div>
+  <div id="russianText"></div>
+  <div id="quiz"></div>
+  <div id="result"></div>
+  <button id="nextRound" class="hidden" onclick="nextRound()">Следующий уровень</button>
+</div>
+
+<script>
+let username="",difficulty="beginner",score=0,bestScore=0;
+let currentQuestions=[],currentText="",qIndex=0;
+
+const storage=JSON.parse(localStorage.getItem("russianTrainer")||"{}");
+
+function saveProgress(){
+  localStorage.setItem("russianTrainer",JSON.stringify({
+    username,difficulty,bestScore:Math.max(bestScore,score)
+  }));
+}
+
+// Long fallback texts with 5 questions each, multi-paragraph
+const fallbackData = [
+  // BEGINNER
+  {
+    difficulty:"beginner",
+    text:`Маша любит читать книги. Каждый день она идёт в библиотеку и выбирает новую книгу. Она очень любит сказки и истории о животных. Иногда Маша обсуждает книги с друзьями и делится впечатлениями. Её любимая книга — о маленькой девочке и её котёнке.
+
+Маша мечтает написать собственную сказку, когда вырастет. Она уже пробует сочинять короткие истории дома, делая иллюстрации и придумывая новых персонажей. Она верит, что когда-нибудь её сказки понравятся многим детям.
+
+Каждую неделю Маша посещает творческие кружки, где учится рисовать и сочинять новые сюжеты. Она старается делать свои истории интересными и смешными, чтобы друзья смеялись и радовались.`
+    ,questions:[
+      {q:"Что любит делать Маша?", options:["читать книги","готовить","играть","петь"], answer:"читать книги"},
+      {q:"Куда Маша ходит каждый день?", options:["в библиотеку","в школу","в парк","в магазин"], answer:"в библиотеку"},
+      {q:"Какой жанр книг ей нравится?", options:["сказки","детективы","фантастика","романы"], answer:"сказки"},
+      {q:"С кем Маша обсуждает книги?", options:["с друзьями","с родителями","с учителем","с соседями"], answer:"с друзьями"},
+      {q:"Что она мечтает сделать в будущем?", options:["написать сказку","путешествовать","учить математику","стать врачом"], answer:"написать сказку"}
+    ]
+  },
+  // INTERMEDIATE
+  {
+    difficulty:"intermediate",
+    text:`В прошлом году Андрей поехал в Санкт-Петербург. Он посетил Эрмитаж и увидел картины известных художников. Погода была прохладной, но Андрей гулял по городу и наслаждался архитектурой. Вечерами он пробовал местную кухню и общался с жителями города.
+
+Путешествие оставило у него много впечатлений и фотографий, которые он показывает друзьям. Он также записывал заметки, чтобы помнить интересные места и истории о городе. Андрей мечтает вернуться туда ещё раз и посетить новые музеи и театры.
+
+Каждое утро Андрей делал небольшие прогулки по набережной, изучая памятники и мосты. Он отмечал для себя интересные кафе и книжные магазины, чтобы рекомендовать их знакомым.`
+    ,questions:[
+      {q:"Куда ездил Андрей?", options:["в Санкт-Петербург","в Москву","в Киев","в Минск"], answer:"в Санкт-Петербург"},
+      {q:"Что он посетил?", options:["Эрмитаж","Третьяковку","Лувр","Гуггенхайм"], answer:"Эрмитаж"},
+      {q:"Какая была погода?", options:["прохладная","жаркая","дождливая","ветреная"], answer:"прохладная"},
+      {q:"Что он пробовал вечером?", options:["местную кухню","мороженое","книги","фильмы"], answer:"местную кухню"},
+      {q:"Что он показывал друзьям?", options:["фотографии","сувениры","книги","журналы"], answer:"фотографии"}
+    ]
+  },
+  // ADVANCED
+  {
+    difficulty:"advanced",
+    text:`Алексей изучает программирование на Python и создаёт небольшие проекты. Он уделяет внимание структуре кода и изучает различные библиотеки. Каждый день он пишет новые программы и исправляет ошибки в старых.
+
+В свободное время Алексей участвует в онлайн-форумах, обсуждает задачи с другими программистами и ищет вдохновение для сложных проектов. Он мечтает создать собственное приложение для изучения языков, чтобы помочь людям изучать новые навыки быстрее и интереснее.
+
+Алексей также планирует разрабатывать обучающие материалы, проводить мастер-классы и делиться своим опытом с начинающими программистами. Его цель — сочетать практическую работу и обучение, чтобы проекты были полезны и красивы одновременно.`
+    ,questions:[
+      {q:"Что изучает Алексей?", options:["Python","математику","историю","физику"], answer:"Python"},
+      {q:"Что он создаёт?", options:["небольшие проекты","книги","фильмы","исследования"], answer:"небольшие проекты"},
+      {q:"Что он делает каждый день?", options:["пишет новые программы","читает книги","готовит","рисует"], answer:"пишет новые программы"},
+      {q:"Где Алексей обсуждает задачи?", options:["на онлайн-форумах","в школе","с друзьями","дома"], answer:"на онлайн-форумах"},
+      {q:"О чём он мечтает?", options:["создать приложение для изучения языков","стать врачом","путешествовать","писать книги"], answer:"создать приложение для изучения языков"}
+    ]
+  }
+];
+
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function getRandomText(level){
+  const pool = fallbackData.filter(d=>d.difficulty===level);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function startTraining(){
+  username=document.getElementById("username").value||storage.username||"Ученик";
+  difficulty=document.getElementById("difficulty").value||storage.difficulty||"beginner";
+  bestScore=storage.bestScore||0;
+  document.getElementById("setup").classList.add("hidden");
+  document.getElementById("training").classList.remove("hidden");
+  document.getElementById("greeting").innerText=`Привет, ${username}!`;
+  loadRound();
+}
+
+function loadRound(){
+  document.getElementById("quiz").innerHTML="<p>⌛ Загрузка...</p>";
+  document.getElementById("russianText").innerText="";
+  document.getElementById("result").innerText="";
+  document.getElementById("nextRound").classList.add("hidden"); // hide button at start
+  qIndex=0;
+  score=0;
+
+  const data = getRandomText(difficulty);
+  if(!data){
+    document.getElementById("quiz").innerHTML="<p>⚠️ Нет данных для этого уровня.</p>";
+    return;
+  }
+
+  currentText = data.text;
+  currentQuestions = data.questions.map(q=>{
+    const opts = shuffleArray([...q.options]);
+    return {...q, options:opts, answer: q.answer};
+  });
+
+  document.getElementById("russianText").innerText=currentText;
+  renderQuestion();
+}
+
+function renderQuestion(){
+  const qDiv = document.getElementById("quiz");
+  if(qIndex>=currentQuestions.length){
+    const msg = `Результат: ${score}/${currentQuestions.length} (лучший: ${Math.max(score,bestScore)})`;
+    document.getElementById("result").innerText = msg;
+    bestScore=Math.max(score,bestScore);
+    saveProgress();
+    document.getElementById("nextRound").classList.remove("hidden");
+    return;
+  }
+
+  const q = currentQuestions[qIndex];
+  document.getElementById("progress").innerText = `Вопрос ${qIndex+1} из ${currentQuestions.length}`;
+
+  qDiv.innerHTML = `
+    <div class="question">
+      <h3>${q.q}</h3>
+      <div class="options">
+        ${q.options.map(opt=>`<button onclick="checkAnswer(this,'${opt}','${q.answer}')">${opt}</button>`).join("")}
+      </div>
+    </div>`;
+}
+
+function checkAnswer(btn,sel,correct){
+  correct = correct.trim().toLowerCase();
+  const buttons = document.querySelectorAll(".options button");
+  buttons.forEach(b=>{
+    const val = b.innerText.trim().toLowerCase();
+    if(val===correct) b.classList.add("correct");
+    else if(b===btn) b.classList.add("wrong");
+    b.disabled=true;
+  });
+  if(sel.trim().toLowerCase()===correct) score++;
+  setTimeout(()=>{qIndex++; renderQuestion();},700);
+}
+
+function nextRound(){
+  if(difficulty==="beginner") difficulty="intermediate";
+  else if(difficulty==="intermediate") difficulty="advanced";
+  loadRound();
+}
+</script>
+
+</body>
+</html>

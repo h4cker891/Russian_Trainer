@@ -1,2 +1,2 @@
-# Russian_Trainer
-Russian language teacher.
+# About
+Just a little app I made for fun. Enjoy!
